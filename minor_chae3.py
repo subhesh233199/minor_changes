@@ -804,9 +804,3 @@ async def run_full_analysis_wst(request) -> AnalysisResponse:
         hyperlinks=all_hyperlinks,
         brief_summary=brief_summary
     )
-
-
-
-
-
-
