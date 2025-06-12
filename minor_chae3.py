@@ -1,48 +1,51 @@
-def normalize_metrics(metrics):
+def run_fallback_visualization(metrics):
     """
-    Restructure LLM output into a {metric: {version: {"ATLs Fixed": x, "BTLs Fixed": y}}} format.
-    Applies to both release_scope and critical_metrics.
+    Generates line charts for ATLs and BTLs for each metric in Release Scope and Critical Metrics.
+    Each chart shows trends over all available versions.
+    Saves each chart as a .png in the 'visualizations' folder.
     """
-    import re
+    import matplotlib.pyplot as plt
+    import os
 
-    def safe_float(val):
-        try:
-            if isinstance(val, str):
-                # extract the first number, ignore units/words
-                digits = "".join([c for c in val if c.isdigit() or c == "."])
-                return float(digits) if digits else None
-            return float(val)
-        except Exception:
-            return None
+    viz_folder = "visualizations"
+    if os.path.exists(viz_folder):
+        for f in os.listdir(viz_folder):
+            os.remove(os.path.join(viz_folder, f))
+    else:
+        os.makedirs(viz_folder, exist_ok=True)
 
-    # For Release Scope
+    # --- RELEASE SCOPE ---
     if "release_scope" in metrics:
-        orig = metrics["release_scope"]
-        result = {}
-        for metric, version_dict in orig.items():
-            # If the LLM output is in per-version, per-metric list format, handle that:
-            if isinstance(version_dict, dict):
-                # new format: metric: {version: {"ATLs Fixed": .., "BTLs Fixed": ..}}
-                result[metric] = {}
-                for version, vals in version_dict.items():
-                    atls = safe_float(vals.get("ATLs Fixed"))
-                    btls = safe_float(vals.get("BTLs Fixed"))
-                    result[metric][version] = {"ATLs Fixed": atls, "BTLs Fixed": btls}
-            # fallback: legacy per-version format
-            else:
-                continue
-        metrics["release_scope"] = result
+        for metric, vdict in metrics["release_scope"].items():
+            versions = sorted(vdict.keys())
+            atls = [(vdict[v].get("ATLs Fixed", 0) or 0) for v in versions]
+            btls = [(vdict[v].get("BTLs Fixed", 0) or 0) for v in versions]
+            plt.figure()
+            plt.plot(versions, atls, marker='o', label="ATLs Fixed")
+            plt.plot(versions, btls, marker='o', label="BTLs Fixed")
+            plt.title(f"{metric} - ATLs & BTLs Fixed Trend")
+            plt.xlabel("Version")
+            plt.ylabel("Fixed Count")
+            plt.legend()
+            plt.tight_layout()
+            plt.savefig(os.path.join(viz_folder, f"{metric.replace(' ', '_').lower()}_release_scope_trend.png"))
+            plt.close()
 
-    # For Critical Metrics
+    # --- CRITICAL METRICS ---
     if "critical_metrics" in metrics:
-        orig = metrics["critical_metrics"]
-        result = {}
-        for metric, version_dict in orig.items():
-            result[metric] = {}
-            for version, vals in version_dict.items():
-                atls = safe_float(vals.get("ATLs Fixed"))
-                btls = safe_float(vals.get("BTLs Fixed"))
-                result[metric][version] = {"ATLs Fixed": atls, "BTLs Fixed": btls}
-        metrics["critical_metrics"] = result
+        for metric, vdict in metrics["critical_metrics"].items():
+            versions = sorted(vdict.keys())
+            atls = [(vdict[v].get("ATLs Fixed", 0) or 0) for v in versions]
+            btls = [(vdict[v].get("BTLs Fixed", 0) or 0) for v in versions]
+            plt.figure()
+            plt.plot(versions, atls, marker='o', label="ATLs")
+            plt.plot(versions, btls, marker='o', label="BTLs")
+            plt.title(f"{metric} - ATLs & BTLs Trend")
+            plt.xlabel("Version")
+            plt.ylabel("Count")
+            plt.legend()
+            plt.tight_layout()
+            plt.savefig(os.path.join(viz_folder, f"{metric.replace(' ', '_').lower()}_critical_metrics_trend.png"))
+            plt.close()
 
-    return metrics
+    return True
